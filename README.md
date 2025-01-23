@@ -4,7 +4,7 @@ This is a program applying the concepts of queueing theory.
 Built using Kotlin, Gtk4 and libadwaita.
 
 # Building
-```
+```bash
 git clone https://github.com/hamza-Algohary/queuesim
 cd queuesim
 ./gradlew run
