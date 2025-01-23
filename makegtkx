@@ -1,0 +1,3 @@
+#!/bin/bash
+mkdir app/src/main/kotlin/queuesim/frontend/gtkx
+python3 makegtkx.py > app/src/main/kotlin/queuesim/frontend/gtkx/constructors.kt

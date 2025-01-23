@@ -1,0 +1,194 @@
+package queuesim.backend
+
+import java.util.*
+import kotlin.collections.ArrayList
+import kotlin.collections.HashSet
+import kotlin.math.ln
+import kotlin.math.roundToInt
+
+fun queuesim.backend.exponentialRandomNumber(rate : Double) = ln(1-Math.random()) / -rate
+class queuesim.backend.Customer(val customers: LinkedList<queuesim.backend.Customer> , val number: Int, val arrivalTime : Double, queueWaitingTime : queuesim.backend.Customer.()-> Double, val serviceTime : Double, isBlocked : queuesim.backend.Customer.()->Boolean, val server : Server) {
+    val blocked = isBlocked()
+    val queueWaitingTime = queueWaitingTime()
+    init {
+        if(!blocked) {
+            server.totalIdleTime += serviceStartTime() - server.customers.queuesim.backend.lastCustomer().serviceEndTime()
+            server.customers.add(this)
+        }
+    }
+//    companion object {
+//        val customers = LinkedList<queuesim.backend.queuesim.backend.Customer>()
+//    }
+    override fun toString() = "$number\t${arrivalTime.queuesim.backend.asMinutes()}" +
+                              if(!blocked) {"\t${serviceStartTime().queuesim.backend.asMinutes()}\t\t${serviceEndTime().queuesim.backend.asMinutes()}\t\t${queueWaitingTime.queuesim.backend.asMinutes()}\t\t${serviceTime.queuesim.backend.asMinutes()}\t\t${totalWaitingTime().queuesim.backend.asMinutes()}\t\t\t${server.name}\t\t"}
+                                               else{"\tBLOCKED"}
+}
+
+public class CustomersInSystem {
+    private var endTime = 0
+    private var maxNumberInSystem = 0
+    private val numbersAtSecond = queuesim.backend.SafeArrayList<Int>(0)
+    //private val frames = queuesim.backend.queuesim.backend.SafeArrayList<Frame>(Frame())
+    fun addArrival(timeInSeconds : Int) {
+        endTime = timeInSeconds.coerceAtLeast(endTime)
+        totalNumberServed++
+        for(i in timeInSeconds..endTime) {
+            numbersAtSecond.set(i , numbersAtSecond.get(i)+1)
+            maxNumberInSystem = numbersAtSecond.get(i).coerceAtLeast(maxNumberInSystem)
+            totalNumberInSystemPerSecond++
+        }
+    }
+    fun addDeparture(timeInSeconds: Int) {
+        endTime = timeInSeconds.coerceAtLeast(endTime)
+        for(i in timeInSeconds..endTime) {
+            numbersAtSecond.set(i , (numbersAtSecond.get(i)-1).coerceAtLeast(0))
+            totalNumberInSystemPerSecond--
+        }
+    }
+
+    var totalNumberServed = 0
+    var totalNumberInSystemPerSecond = 0
+    var totalNumberInQueuePerSecond = 0
+    fun endTime() = endTime
+    fun numberInSystemAtSecond(time : Int) = numbersAtSecond[time]
+    fun numberInQueueAtSecond(time : Int , numberOfServers: Int) = (numberInSystemAtSecond(time)-numberOfServers).coerceAtLeast(0)
+    fun numberAtSecond() = numbersAtSecond
+    fun maxNumberInSystem() = maxNumberInSystem
+}
+
+//public class Frame{
+//    var numberInSystem = 0
+//    var totalNumberServed  = 0
+//    var totalNumberInSystemPerSecond = 0
+//    var totalNumberInQueuePerSecond = 0
+//    var maxNumberInSystem = 0
+//    fun numberInQueue(numberOfServers: Int) = (numberInSystem-numberOfServers).coerceAtLeast(0)
+//
+//    companion object {
+//        val HEAD = Frame()
+//        val TAIL = Frame()
+//    }
+//}
+
+public class queuesim.backend.SafeArrayList<T>(val defaultValue : T) : ArrayList<T>() {
+    override fun set(index: Int, element: T): T {
+        fillUpTo(index)
+        return super.set(index, element)
+    }
+    private fun fillUpTo(index : Int) {
+        while(index >= size) {
+            add(defaultValue)
+        }
+    }
+
+    override fun get(index: Int): T {
+        fillUpTo(index)
+        return super.get(index)
+    }
+}
+fun queuesim.backend.customerDataStrings() = listOf("ID","Arrival","Service","Departure","Queue Time","Service Time","Total Time","Server","CIS")
+fun queuesim.backend.Customer.queuesim.backend.toStrings() =
+    if(blocked) {
+        listOf(
+            number.toString(),
+            arrivalTime.queuesim.backend.asMinutes(),
+            "BLOCKED"
+        )
+    } else {
+        listOf(
+            number.toString(),
+            arrivalTime.queuesim.backend.asMinutes(),
+            serviceStartTime().queuesim.backend.asMinutes(),
+            serviceEndTime().queuesim.backend.asMinutes(),
+            queueWaitingTime.queuesim.backend.asMinutes(),
+            serviceTime.queuesim.backend.asMinutes(),
+            totalWaitingTime().queuesim.backend.asMinutes(),
+            server.name,
+            //customers.numberOfCustomersInSystem(arrivalTime).toString()
+        )
+    }
+
+
+class Server(var name : String, var averageServiceRate : Double, val customers: LinkedList<queuesim.backend.Customer> = LinkedList() , var totalIdleTime : Double = 0.0)
+fun queuesim.backend.Customer.serviceStartTime() = arrivalTime + queueWaitingTime
+fun queuesim.backend.Customer.serviceEndTime() = serviceStartTime() + serviceTime
+fun queuesim.backend.Customer.totalWaitingTime() = queueWaitingTime + serviceTime
+
+//fun LinkedList<queuesim.backend.queuesim.backend.Customer>.idleTimeAtCustomer(customer: queuesim.backend.queuesim.backend.Customer) =
+//    this.indexOf(customer).let { get(it).serviceStartTime() - if(it==0){0.0}else{get(it).server.customers.get get(it-1).serviceEndTime()}  }
+
+fun LinkedList<queuesim.backend.Customer>.queuesim.backend.lastCustomer() : queuesim.backend.Customer =
+    if(size==0) {queuesim.backend.Customer(this ,-1 , 0.0,{0.0},0.0 , {true}, Server("",0.0))}
+    else {last}
+
+fun LinkedList<queuesim.backend.Customer>.newCustomer(interArrivalTime : Double , serviceTime: Double , blocked: queuesim.backend.Customer.()->Boolean , server : Server) =
+    add(queuesim.backend.Customer(this ,queuesim.backend.lastCustomer().number+1 ,
+                 queuesim.backend.lastCustomer().arrivalTime+interArrivalTime,
+                 {Math.max(server.customers.queuesim.backend.lastCustomer().serviceEndTime() - arrivalTime , 0.0)},
+                 serviceTime , blocked , server))
+
+
+//fun LinkedList<queuesim.backend.queuesim.backend.Customer>.numberOfCustomersInSystem(time : Double = queuesim.backend.queuesim.backend.lastCustomer().serviceEndTime()) = filter {!it.blocked && time.between(it.arrivalTime , it.serviceEndTime())   }.size
+//fun LinkedList<queuesim.backend.queuesim.backend.Customer>.numberOfCustomersInQueue (time : Double = queuesim.backend.queuesim.backend.lastCustomer().serviceEndTime()) = filter {!it.blocked && time.between(it.arrivalTime , it.serviceStartTime()) }.size
+
+fun HashSet<Server>.queuesim.backend.nextFastestIdleServer() =
+    sortedBy { it.customers.queuesim.backend.lastCustomer().serviceEndTime() } [0]
+
+fun HashSet<Server>.queuesim.backend.nextServiceTime() = queuesim.backend.exponentialRandomNumber(queuesim.backend.nextFastestIdleServer().averageServiceRate)
+
+class queuesim.backend.QueueSystem(val averageArrivalRate : Double, val servers : HashSet<Server>, val capacity : Double = Double.POSITIVE_INFINITY) {
+    val customers = LinkedList<queuesim.backend.Customer>()
+    val customersInSystem = CustomersInSystem()
+    var totalWaitingTime = 0.0
+    var queueWaitingTime = 0.0
+    fun generateCustomers(number : Int , interArrivalTime: Double = randomInterArrivalTime() , serviceTime: Double = servers.queuesim.backend.nextServiceTime()) {
+        for(i in 0..<number) {
+            customers.newCustomer(interArrivalTime,
+                                  serviceTime ,
+                                  {systemFull(arrivalTime)},
+                                  servers.queuesim.backend.nextFastestIdleServer())
+            customersInSystem.addArrival( (customers.queuesim.backend.lastCustomer().arrivalTime*60).roundToInt() )
+            customersInSystem.addDeparture( (customers.queuesim.backend.lastCustomer().serviceEndTime()*60).roundToInt() )
+            totalWaitingTime += customers.queuesim.backend.lastCustomer().totalWaitingTime()
+            queueWaitingTime += customers.queuesim.backend.lastCustomer().queueWaitingTime
+        }
+    }
+
+    private fun randomInterArrivalTime() = queuesim.backend.exponentialRandomNumber(averageArrivalRate)
+    private fun systemFull(time : Double) = customersInSystem.numberInSystemAtSecond((time*60).roundToInt()) >= capacity//customers.numberOfCustomersInSystem(time) >= capacity
+    override fun toString() = "ID\tArrival\tService Start\tDeparture\tTime in Queue\tTime in Service\tTotal Waiting Time\tServer\n" + customers.joinToString("\n")
+
+    fun averageTotalWaitingTime() = totalWaitingTime/customersInSystem.totalNumberServed //(customersInSystem.endTime()/60.0)
+    fun averageQueueWaitingTime() = queueWaitingTime/customersInSystem.totalNumberServed //(customersInSystem.endTime()/60.0)
+    fun averageCustomersInSystem() = customersInSystem.totalNumberInSystemPerSecond.toDouble()/(customersInSystem.endTime())
+    fun averageCustomersInQueue() = 0.0
+}
+
+fun Double.between(a : Double , b : Double) = this < Math.max(a,b) && this > Math.min(a , b)
+
+fun Double.queuesim.backend.asMinutes() = "${toInt().queuesim.backend.intoTwoDigits()}:${((this-toInt())*60).toInt().queuesim.backend.intoTwoDigits()}"
+fun Double.queuesim.backend.asMinutesDuration() = queuesim.backend.asMinutes().replace(":" , "m ") + "s"
+fun Int.queuesim.backend.intoTwoDigits() = if(this<10){"0"}else{""}+this
+
+//
+//fun LinkedList<queuesim.backend.queuesim.backend.Customer>.averageQueueWaitingTime() = filter{!it.blocked}.map { it.queueWaitingTime }.let{it.sum()/it.size}
+//fun LinkedList<queuesim.backend.queuesim.backend.Customer>.averageTotalWaitingTime() = filter{!it.blocked}.map { it.totalWaitingTime() }.let{it.sum()/it.size}
+//fun LinkedList<queuesim.backend.queuesim.backend.Customer>.averageNumberOfPeopleInQueue() =
+//    queuesim.backend.queuesim.backend.lastCustomer().serviceEndTime().let {
+//        var sum = 0
+//        for(i in 0..it.roundToInt() ) {
+//            sum += numberOfCustomersInQueue(i.toDouble())
+//        }
+//        sum/it
+//    }
+//fun LinkedList<queuesim.backend.queuesim.backend.Customer>.averageNumberOfPeopleInSystem() =
+//    queuesim.backend.queuesim.backend.lastCustomer().serviceEndTime().let {
+//        var sum = 0
+//        for(i in 0..it.roundToInt() ) {
+//            sum += numberOfCustomersInSystem(i.toDouble())
+//        }
+//        sum/it
+//    }
+
+//fun Server.totalIdleTime() = customers.queuesim.backend.queuesim.backend.lastCustomer().serviceEndTime() - customers.map{it.serviceTime}.sum()
+//fun Server.idleTimePercentage() = totalIdleTime()/customers.queuesim.backend.queuesim.backend.lastCustomer().serviceEndTime()

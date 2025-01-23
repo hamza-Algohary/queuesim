@@ -1,0 +1,329 @@
+package queuesim.frontend
+
+import ch.bailu.gtk.cairo.LineCap
+import ch.bailu.gtk.cairo.LineJoin
+import ch.bailu.gtk.glib.Glib
+import ch.bailu.gtk.glib.GlibConstants
+import ch.bailu.gtk.gtk.*
+import gtkx.application
+import gtkx.start
+import gtkx.*
+import gtkx.Align
+import gtkx.Orientation
+import gtkx.Overflow
+import queuesim.backend.*
+import java.io.File
+import java.io.IOException
+import java.lang.instrument.ClassFileTransformer
+import java.util.*
+import java.util.concurrent.TimeUnit
+import kotlin.math.roundToInt
+
+fun main() {
+//    val system = queuesim.backend.queuesim.backend.QueueSystem(0.0 , hashSetOf(Server("A",0.0)))
+//    system.generateCustomers(1 , 0.0 , 4.0)
+//    system.generateCustomers(1 , 8.0 , 1.0)
+//    system.generateCustomers(1 , 6.0 , 4.0)
+//    system.generateCustomers(1 , 1.0 , 3.0)
+//    system.generateCustomers(1 , 8.0 , 2.0)
+//    system.generateCustomers(1 , 3.0 , 4.0)
+//    system.generateCustomers(1 , 8.0 , 5.0)
+//    system.generateCustomers(1 , 7.0 , 4.0)
+//    system.generateCustomers(1 , 2.0 , 5.0)
+//    system.generateCustomers(1 , 3.0 , 3.0)
+//    system.generateCustomers(1 , 1.0 , 3.0)
+//    system.generateCustomers(1 , 1.0 , 5.0)
+//    system.generateCustomers(1 , 5.0 , 4.0)
+//    system.generateCustomers(1 , 6.0 , 1.0)
+//    system.generateCustomers(1 , 3.0 , 5.0)
+//    system.generateCustomers(1 , 8.0 , 4.0)
+//    system.generateCustomers(1 , 1.0 , 3.0)
+//    system.generateCustomers(1 , 2.0 , 3.0)
+//    system.generateCustomers(1 , 4.0 , 2.0)
+//    system.generateCustomers(1 , 5.0 , 3.0)
+//
+//    println(system.toString())
+
+    //val app = App().UI()
+    //System.getProperty("user.dir").also { println(it) }
+    //"python3 src/main/resources/python/SystemOutputs.py 0.1 0.245 1 inf".runCommand(File(".")).also { println(it) }
+    //println(Double.POSITIVE_INFINITY)
+}
+
+class App{
+    //val servers = hashSetOf(Server("A" , 0.245) , Server("B" , 0.256))
+    val calculated = Calculated()
+    var numberOfServers = 0
+    var arrivalRate = 0.0
+    val MAX_NUMBERO_OF_SERVERS = 10
+    val servers = ArrayList<Server>().apply {
+        println("Adding servers.")
+        for(i in 0..<MAX_NUMBERO_OF_SERVERS){
+            add(Server("" , 0.0))
+            println("Adding server $i")
+        }
+    }
+    fun SetNumberOfServers(num : Int) {
+        numberOfServers = num
+        initialize()
+    }
+    fun GetNumberOfServers() = numberOfServers
+    fun GetArrivalRate() = arrivalRate
+    fun SetArrivalRate(rate : Double) {
+        arrivalRate = rate
+        initialize()
+    }
+    private var system = QueueSystem(0.0 , hashSetOf())
+        get() = field
+    fun initialize(averageArrivalRate : Double = GetArrivalRate() , servers : HashSet<Server> =  this.servers.subList(0,numberOfServers).toHashSet()) {
+        system = QueueSystem(averageArrivalRate, servers.also { println("Number of servers = ${it.size}") })
+    }
+    //val capacityPerTime = LinkedList<Pair<Double,Double>>()
+    var time = 0.0
+    fun tick() {
+        if(numberOfServers < 1)
+            return
+
+        system.generateCustomer()
+        calculated.update(arrivalRate , servers[0].averageServiceRate , numberOfServers)
+        updateUI()
+//        val start = capacities.last.first.roundToInt()
+//        val end = system.customers.queuesim.backend.queuesim.backend.lastCustomer().serviceEndTime().roundToInt()
+//        val start = time.toInt()
+//        for(i in start..system.customers.queuesim.backend.queuesim.backend.lastCustomer().serviceEndTime().toInt()) {
+//            capacityPerTime.add(Pair(time,system.customers.numberOfCustomersInSystem(time).toDouble()).also { println(it) })
+//            time++
+//        }
+//        println("===========Plotting=========")
+
+//        getWidgetByID<ScrolledWindow>("tableScrolledWindow")
+    }
+
+    fun updateUI() {
+        getWidgetByID<UpdatableBin>("table").update()
+        getWidgetByID<UpdatableBin>("indicators").update()
+        getWidgetByID<DrawingArea>("graph").queueDraw()
+
+    }
+
+
+    fun UI() {
+
+        initialize()
+
+        globalStyleSheet =
+            """.grid-cell {
+                border: @window_bg_color solid 1px;
+                padding: 5px;
+            }
+            .grid-header {
+                background: lighter(@window_bg_color);
+                font-size: 14px;
+            }
+            """.trimIndent()
+
+        application("algohary.hamza.QueueSimulation") {
+            onActivate {
+                window("Queue Simulation" , "mainWindow").size(800,600)
+                    .titlebar(
+                        HeaderBar().start(
+                            Button().icon("open-menu-symbolic"),
+                            //Button().icon("media-play").action{tick()},
+                            ToggleButton().id("running").icons("media-pause" , "media-play"),//.bind { getWidgetByID<DrawingArea>("graph").animationRunning },
+                            ToggleButton().icon("scroll-lock-on").id("autoScroll").tooltips("Auto Scroll").active(true),
+                            Button().icon("system-restart").action {
+                                //initialize(0.1 , hashSetOf(Server("A",0.245) , Server("B",0.256)))
+                                initialize()
+                                updateUI()
+                            })
+                            .center(
+                                ScrolledWindow().hexpand(true).policy(PolicyType.AUTOMATIC , PolicyType.NEVER).child(
+                                    hbox(3).children(
+                                        Label("Average Inter Arrival Rate = "),
+                                        SpinButton(Adjustment(0.0,0.0,100.0,0.01,1.0,1.0).apply {
+                                            onValueChanged {
+                                                SetArrivalRate(value)
+                                            }
+                                        },0.01,5).id("arrivalRate"),
+                                        Label("Number Of queuesim.backend.queuesim.backend.Servers = "),
+                                        SpinButton(Adjustment(0.0 , 0.0 , MAX_NUMBERO_OF_SERVERS.toDouble() , 1.0 , 1.0 , 1.0).apply {
+                                            onValueChanged {
+                                                SetNumberOfServers(value.toInt())
+                                                getWidgetByID<UpdatableBin>("servers").update()
+                                            }
+                                        } , 1.0 , 3).id("numberOfServers"),
+                                        UpdatableBin().id("servers").child{
+                                            val box = hbox(3).margins(5)
+                                            for(i in 0..<numberOfServers) {
+                                                println("Adding server $i")
+                                                box.children(
+                                                    EditableLabel(Char('A'.code+i).toString()).apply{
+                                                        onChange {
+                                                            servers[i].name = asEditable().text.toString()
+                                                            initialize()
+                                                        }
+                                                        onShow {
+                                                            servers[i].name = asEditable().text.toString()
+                                                            initialize()
+                                                        }
+                                                    },
+                                                    SpinButton(Adjustment(0.0,0.0,100.0,0.01,1.0,1.0).apply {
+                                                        onValueChanged {
+                                                            servers[i].averageServiceRate = value
+                                                            initialize()
+                                                        }
+                                                    } , 0.01 , 5).apply {
+                                                        onShow {
+                                                            servers[i].averageServiceRate = value
+                                                            initialize()
+                                                        }
+                                                    }
+                                                )
+                                            }
+                                            box
+                                        }
+                                    )
+                            )
+                        )
+                    )
+                    .child(
+                        Paned(Orientation.VERTICAL.ordinal)
+                            .start(
+                                DrawingArea().id("graph").onDraw{width , height ->
+//                                    settings(color = Color( (255*Math.random()).toInt() , (255*Math.random()).toInt() , (255*Math.random()).toInt()))
+//                                    paint()
+                                    //if(getWidgetByID<DrawingArea>("graph").animationRunning.get()) {
+                                        settings(color = Color(255,0,255) , lineWidth = 2.0 , lineJoin = LineJoin.ROUND , lineCap = LineCap.ROUND)
+                                    val scale = plot(system.customersInSystem.numberAtSecond().mapIndexed{index,element -> Pair(index.toDouble() , element.toDouble())} , width , height , xScale = 10.0 , yScale = 0.4*height/system.customersInSystem.maxNumberInSystem())
+                                    //}
+                                    plotXAxis(width , height , 100 , scale.first , 0.0 , height/2.0 , textDisplacement = 12.0 , valueRepresenter =  {num->(num/60.0).asMinutes()})
+                                    plotYAxis(width , height , 20 , -scale.second , 0.0 , height/2.0)
+
+                                }.size(-1 ,100)
+                            )
+                            .end(
+                                hbox(10).children(
+                                    vbox().margins(20).cssClasses("card").overflow(Overflow.HIDDEN).children(
+                                        hbox().children(*customerDataStrings().map{"<b>$it</b>"}.toLabels().onEach { it.cssClasses("grid-cell","grid-header").markup(true) }.toTypedArray()),
+                                        ScrolledWindow().apply { vadjustment.apply{ onChanged { if(getWidgetByID<ToggleButton>("autoScroll").active) value = upper  }} }
+                                            .id("tableScrolledWindow")
+                                            .policy(PolicyType.NEVER , PolicyType.AUTOMATIC)
+                                            .vexpand(true)
+                                            .child(
+                                                UpdatableBin().id("table").child{
+                                                    system.customers.subList((system.customers.size-50).coerceAtLeast(0),system.customers.size).tablulate()
+                                                }
+                                            )
+                                    ),
+                                    UpdatableBin().id("indicators").cssClasses("card").margins(20).child{
+                                        vbox().hexpand(true).margins(10).children(
+                                            Label("Simluation").cssClasses("title-1"),
+                                            Label("Served  = ${system.customersInSystem.totalNumberServed}").cssClasses("title-3").halign(Align.START),
+                                            Label("L  = ${system.averageCustomersInSystem()}").cssClasses("title-3").halign(Align.START),
+                                            //Label("Lq = ${system.customers.averageNumberOfPeopleInQueue() .roundToInt()}") .cssClasses("title-3").halign(Align.START),
+                                            Label("W  = ${system.averageTotalWaitingTime().asMinutesDuration()}").cssClasses("title-3").halign(Align.START),
+                                            Label("Wq = ${system.averageQueueWaitingTime().asMinutesDuration()}").cssClasses("title-3").halign(Align.START),
+                                            Label("Calculation").cssClasses("title-1"),
+                                            Label("L  = ${calculated.L}").cssClasses("title-3").halign(Align.START),
+                                            Label("Lq = ${calculated.Lq}") .cssClasses("title-3").halign(Align.START),
+                                            Label("W  = ${calculated.W.asMinutesDuration()}").cssClasses("title-3").halign(Align.START),
+                                            Label("Wq = ${calculated.Wq.asMinutesDuration()}").cssClasses("title-3").halign(Align.START),
+                                            Label("Idle Times Percentage").cssClasses("title-1"),
+                                            *servers.subList(0,numberOfServers).map{server ->
+                                                Label("${server.name}  ${(server.totalIdleTime/server.customers.lastCustomer().serviceEndTime()*100).roundToInt()}%").cssClasses("title-3").halign(Align.START)
+                                            }.toTypedArray()
+                                        )
+                                    },
+                                )
+                            )
+                    )
+
+
+
+                timer(100) {
+                    if(getWidgetByID<ToggleButton>("running").active)
+                        tick()
+                    GlibConstants.SOURCE_CONTINUE
+                }
+
+            }
+        }
+    }
+
+}
+
+fun Collection<Customer>.tablulate() =
+    map{it.toStrings().toLabels().onEach { it.cssClasses("grid-cell")}}.toGrid()
+
+
+public class Calculated {
+    val path = "src/main/resources/python/SystemOutputs.py"
+    var model = ""
+    var L = 0.0
+    var Lq = 0.0
+    var W = 0.0
+    var Wq = 0.0
+    fun update(averageArrivalRate: Double , averageServiceRate : Double , numberOfServers : Int , capacity : Double = Double.POSITIVE_INFINITY) {
+        val results = "python3 $path $averageArrivalRate $averageServiceRate $numberOfServers ${if(capacity.isInfinite()){"inf"}else{capacity} } ".runCommand(File(".")).split(" ")
+        model = results[0]
+        L  = results[1].toDouble()
+        Lq = results[2].toDouble()
+        W  = results[3].toDouble()
+        Wq = results[4].toDouble()
+    }
+
+}
+
+
+// Copied from https://stackoverflow.com/questions/35421699/how-to-invoke-external-command-from-within-kotlin-code
+fun String.runCommand(workingDir: File): String {
+    val parts = this.split("\\s".toRegex())
+    val proc = ProcessBuilder(*parts.toTypedArray())
+            .directory(workingDir)
+            .redirectOutput(ProcessBuilder.Redirect.PIPE)
+            .redirectError(ProcessBuilder.Redirect.PIPE)
+            .start()
+    proc.waitFor(60, TimeUnit.MINUTES)
+    return proc.inputStream.bufferedReader().readText()
+}
+
+
+
+
+//fun Collection<queuesim.backend.queuesim.backend.Customer>.tablulate() =
+//    map{it.queuesim.backend.toStrings().toLabels().apply { forEach{it.css("border:1px solid black;")} }}.toGrid()
+
+//fun Collection<queuesim.backend.queuesim.backend.Customer>.tablulate() =
+//    vbox().children(
+//        *this.map { it.queuesim.backend.toStrings() }
+//                  .map { hbox(5).children(*it.toLabels().apply{forEach { it.css("border:1px solid black") }}.toTypedArray()) }
+//                  .toTypedArray()
+//    )
+
+
+
+
+
+
+
+//fun tabulate(customers : Collection<queuesim.backend.queuesim.backend.Customer>) =
+//    vbox().children(
+//        *customers.map { it.queuesim.backend.toStrings() }
+//                  .map { hbox().children(*it.toLabels().toTypedArray()) }
+//                  .toTypedArray()
+//    )
+
+//
+//public class Table<T>(vararg titles : String , val rows : LinkedList<T> , val transformer: (it : T)->Collection<String>) : Box(Orientation.VERTICAL.ordinal , 0) {
+//    fun update(){
+//        remove(firstChild)
+//        children(
+//            vbox().children(
+//                rows.forEach{
+//
+//                }
+//            )
+//        )
+//    }
+//}
+
